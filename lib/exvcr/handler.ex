@@ -11,7 +11,14 @@ defmodule ExVCR.Handler do
   Get response from either server or cache.
   """
   def get_response(recorder, request) do
-    get_response_from_cache(request, recorder) || get_response_from_server(request, recorder)
+    adapter          = ExVCR.Recorder.options(recorder)[:adapter]
+    params           = adapter.generate_keys_for_request(request)
+    recorder_options = Options.get(recorder.options)
+
+    case ignore?(recorder_options, params) do
+      true  -> get_response_from_server_without_caching(request, recorder)
+      false -> get_response_from_cache(request, recorder) || get_response_from_server(request, recorder)
+    end
   end
 
   @doc """
@@ -35,6 +42,11 @@ defmodule ExVCR.Handler do
         Recorder.set(responses, recorder)
         adapter.get_response_value_from_cache(response)
     end
+  end
+
+  defp ignore?(options, params) do
+    ignore_urls = options |> Keyword.get(:ignore_urls, [])
+    ignore_urls |> Enum.member?(params[:url])
   end
 
   defp stub_mode?(options) do
@@ -141,6 +153,11 @@ defmodule ExVCR.Handler do
     Recorder.append(recorder, adapter.convert_to_string(request, response))
     ExVCR.Checker.add_server_count(recorder)
     response
+  end
+
+  defp get_response_from_server_without_caching(request, recorder) do
+    adapter = ExVCR.Recorder.options(recorder)[:adapter]
+    :meck.passthrough(request) |> adapter.hook_response_from_server
   end
 
   defp raise_error_if_cassette_already_exists(recorder, request_description) do
