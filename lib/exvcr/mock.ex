@@ -21,6 +21,10 @@ defmodule ExVCR.Mock do
       def options_method() do
         unquote(options)
       end
+
+      def unload_vcr do
+        :meck.unload(adapter_method().module_name)
+      end
     end
   end
 
