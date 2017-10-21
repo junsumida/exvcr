@@ -46,7 +46,14 @@ defmodule ExVCR.Handler do
 
   defp ignore?(options, params) do
     ignore_urls = options |> Keyword.get(:ignore_urls, [])
-    ignore_urls |> Enum.member?(params[:url])
+    regex_urls  = ignore_urls |> Enum.filter(fn x -> x |> Regex.regex? end)
+    string_urls = ignore_urls |> Enum.filter(fn x -> x |> is_binary end)
+
+    cond do
+      string_urls |> Enum.member?(params[:url]) -> true
+      regex_urls  |> Enum.any?(fn x ->  params[:url] =~ x end) -> true
+      true -> false
+    end
   end
 
   defp stub_mode?(options) do
